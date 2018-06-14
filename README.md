@@ -42,7 +42,9 @@ MyProject
 
 Dependency
 -
-This uses the openpyxl package, so you will need to install that.
+- Only tested on Python 3.6
+
+- This uses the openpyxl package, so you will need to install that.
 
 ```pip install openpyxl```
 
@@ -53,7 +55,7 @@ If you already have some data in the database, to save it use:
 
 ```./manage.py dumpdata myapp1.MyModelName --format xlsx --output myfilename.xlsx```
  
- If you leave out the **output** option, the table is dumped to <stdout> in CSV format.
+ If you leave out the **output** option, the table is dumped to stdout in CSV format.
 
 To manually load the data from the Excel file, use:
 
@@ -64,6 +66,8 @@ To use the fixture in a test, just add
 ```    fixtures = ['myfilename.xlsx']```
 
 to the test class.
+
+If you need to brush up on fixtures, look at https://django-testing-docs.readthedocs.io/en/latest/fixtures.html.
 
 Contribute
 -
