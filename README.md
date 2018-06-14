@@ -5,7 +5,8 @@ Installation
 -
 At the moment this is not a pip-ified project, so the installation is going to be manual. Copy the contents of the _src_ directory into your django application under the root source directory or one of the apps, although I prefer to create a _core_ package.
 
-Example:
+*Example*:
+
 If your Django tree looks something like:
 ```
 MyProject
@@ -38,6 +39,13 @@ MyProject
 | |-myapp2
 |-templates
 ```
+
+Dependency
+-
+This uses the openpyxl package, so you will need to install that.
+
+```pip install openpyxl```
+
 
 Usage
 -
