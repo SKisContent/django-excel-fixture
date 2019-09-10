@@ -98,8 +98,8 @@ python runtests.py
 Author
 ------
 
-* [Henrique Portela] (https://github.com/portela>)
-* [SKisContent](https://github.com/SKisContent>)
+* [Henrique Portela](https://github.com/portela)
+* [SKisContent](https://github.com/SKisContent)
 
 
 License
