@@ -69,6 +69,37 @@ to the test class.
 
 If you need to brush up on fixtures, look at https://django-testing-docs.readthedocs.io/en/latest/fixtures.html.
 
-Contribute
--
-This gets the job done but there could be more work done to make it more resilient and handle more data types. It also doesn't do anything with foreign keys or many-to-many relationships. If you feel like contributing, please do! 
+## Contribute
+
+```console
+git clone git@github.com:SKisContent/django-excel-fixture.git
+cd django-excel-fixture
+python -m venv .venv
+source .venv/scripts/activate
+pip install -r requirements.txt
+python runtests.py
+```
+
+ **_NOTE:_**  On Windows, change line 4 to
+
+
+```console
+    cd ./.venv/scripts/
+    activate
+```
+
+
+
+> **_NOTE:_** This gets the job done but there could be more work done to make it more resilient and handle more data types. It also doesn't do anything with foreign keys or many-to-many relationships. If you feel like contributing, please do!
+
+Author
+------
+
+* `Henrique Portela <https://github.com/portela>`_
+* `SKisContent <https://github.com/SKisContent>`_
+
+
+License
+=======
+
+The MIT License.
