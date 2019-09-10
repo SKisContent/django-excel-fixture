@@ -1,5 +1,8 @@
 # Django Excel Fixture
-I was getting ready to write some tests and needed test data, and it seemed easiest to create it using Excel. However, I couldn't find existing code that would quickly load the data into the db, so I wrote a fixture for loading and saving data to Excel files.
+
+Using excel file format for fixture in Django. Easely importanting, exporting and test data.
+
+[![Build Status](https://travis-ci.org/portela/django-excel-fixture.svg?branch=master)](https://travis-ci.org/portela/django-excel-fixture)
 
 Installation
 -
@@ -95,8 +98,8 @@ python runtests.py
 Author
 ------
 
-* `Henrique Portela <https://github.com/portela>`_
-* `SKisContent <https://github.com/SKisContent>`_
+* [Henrique Portela] (https://github.com/portela>)
+* [SKisContent](https://github.com/SKisContent>)
 
 
 License
