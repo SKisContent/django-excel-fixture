@@ -9,6 +9,7 @@ __pycache__/
 requests_cache.sqlite
 db.sqlite3
 geckodriver.log
+testfile.xlsx
 .DS_Store
 *.project
 *.swp

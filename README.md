@@ -1,6 +1,6 @@
 # Django Excel Fixture
 
-Using excel file format for fixture in Django. Easely importanting, exporting and test data.
+Django Fixtures using excel files. Easily importing, exporting and test data.
 
 [![Build Status](https://travis-ci.org/portela/django-excel-fixture.svg?branch=master)](https://travis-ci.org/portela/django-excel-fixture)
 

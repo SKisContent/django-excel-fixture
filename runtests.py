@@ -20,3 +20,10 @@ if __name__ == '__main__':
     # because we can only setup django's settings once, and it's bad
     # practice to change them at runtime
     subprocess.call(['django-admin', 'test', '--nomigrations'])
+
+    # Temp / working / playing around:
+    # subprocess.call(['django-admin', 'makemigrations'])
+    # subprocess.call(['django-admin', 'migrate'])
+    # subprocess.call(['django-admin', 'dumpdata')
+    # subprocess.call(['django-admin', 'dumpdata', '--format', 'xlsx', '--output', 'testfile.xlsx'])
+    # subprocess.call(['django-admin', 'dumpdata', '--output', 'myfilename.json'])
