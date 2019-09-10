@@ -1,0 +1,13 @@
+[
+{ "model":"myapp.person", "pk":1, "fields":{"name":"Person 1", "age":21} },
+{ "model":"myapp.person", "pk":2, "fields":{"name":"Person 2", "age":22} },
+{ "model":"myapp.person", "pk":3, "fields":{"name":"Person 3", "age":23} },
+{ "model":"myapp.recipe", "pk":1, "fields":{"name":"Recipe 1", "owner":1, "cooking_time":null, "created_at":"2019-09-10T15:17:34.623", "rtype":"V"} },
+{ "model":"myapp.recipe", "pk":2, "fields":{"name":"Recipe 2", "owner":1, "cooking_time":null, "created_at":"2019-09-10T15:17:38.871", "rtype":"V"} },
+{ "model":"myapp.recipe", "pk":3, "fields":{"name":"Recipe 3", "owner":1, "cooking_time":null, "created_at":"2019-09-10T15:17:42.534", "rtype":"V"} },
+{ "model":"myapp.ingredient", "pk":1, "fields":{"name":"Ingredient 1"} },
+{ "model":"myapp.ingredient", "pk":2, "fields":{"name":"Ingredient 2"} },
+{ "model":"myapp.ingredient", "pk":3, "fields":{"name":"Ingredient 3"} },
+{ "model":"myapp.association", "pk":1, "fields":{"recipe":1, "ingredient":1, "amount":null} },
+{ "model":"myapp.association", "pk":2, "fields":{"recipe":1, "ingredient":3, "amount":null} }
+]
