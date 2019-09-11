@@ -14,13 +14,16 @@ from datetime import datetime, date
 
 import pytz
 from django.apps import apps
-from django.db import models
 from django.conf import settings
 from django.core.serializers import base
 from django.utils import timezone
 from openpyxl import load_workbook, Workbook
+from openpyxl.styles import Alignment
 from openpyxl.writer.excel import save_workbook
 
+from django.db import models
+from django.db.models import AutoField, BooleanField, CharField, DurationField, DateTimeField, ForeignKey, DecimalField, \
+    IntegerField, PositiveIntegerField
 
 PREFERRED_TS_FORMAT = '%Y-%m-%dT%H:%M:%S:%f%z'
 Y_M_D_FORMAT = '%Y-%m-%d'
@@ -30,63 +33,165 @@ DATETIME_FORMATS = {r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{6}[-+]\d{4}':PREFER
                     r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}':'%Y-%m-%d %H:%M:%S',
                     }
 
+class ExcelMixin:
+    workbook = 0
+    cursor = 1
+    headers = { }
+    #  {
+    #    '1ª Sheet Name': ['1ª column name', '2ª column name'],
+    #    '2ª Sheet Name': ['1ª column name', '2ª column name'],
+    #  }
 
-class Serializer(base.Serializer):
-    def start_serialization(self):
+
+    HEADER_ALIGN = Alignment(
+        horizontal='center',
+        vertical='center',
+    )
+
+    def column_index(self, sheet_title, name):
+        return self.headers[sheet_title].index(name) + 1
+
+    def increase_cursor(self):
+        self.cursor += 1
+
+    def create_workbook(self):
+
+        print('create_workbook')
+
         self.wb = Workbook()
         self.ws = self.wb.active
         self.current_row = 2
 
+
+    def select_sheet(self, name='Sheet 1'):
+
+        print('select sheet', name)
+
+        self.ws = self.wb[name]
+        self.cursor = 1
+
+    def current_sheet(self):
+        return self.ws.title
+
+    def has_sheet(self, name):
+        if name  in self.wb.sheetnames:
+            return True
+        return False
+
+    def create_sheet(self, name):
+
+        print('\ncreate sheet:', name)
+
+        if name not in self.headers:
+            self.headers[name] = []
+
+        self.wb.create_sheet(name)
+
+    def create_hearder(self, list=[]):
+
+        print('create header', list)
+
+        for index, val in enumerate(list):
+            self.ws.cell(row=1, column=(index+1), value=val.upper())
+            self.headers[self.ws.title].append(val)
+
+    def add_cell(self, obj, field, value):
+
+        print('add cell', obj, ' - ', field, ' - ', value)
+        print('data', self.ws.title,
+              'name', field.name.upper(),
+              'index', self.column_index(self.ws.title, field.name),
+              )
+
+        self.ws.cell(
+            row=self.cursor,
+            column=self.column_index(self.ws.title, field.name),
+            value=value
+        )
+
+    def save_workbook(self, filename):
+
+        print('save_workbook')
+        print(self.headers)
+
+        pass
+
+
+
+
+class Serializer(ExcelMixin, base.Serializer):
+
+    COMPATIBLE_FIELDS = [
+        AutoField,
+        BooleanField,
+        CharField,
+        DateTimeField,
+        DecimalField,
+        DurationField,
+        ForeignKey,
+        IntegerField,
+        PositiveIntegerField,
+    ]
+
+    def _fields_dict_from_obj(self, obj):
+        return dict([(mf.name, mf) for mf in obj._meta.fields if type(mf) in self.COMPATIBLE_FIELDS])
+
+    def _fields_name_from_obj(self, obj):
+        return [mf.name for mf in obj._meta.fields if type(mf) in self.COMPATIBLE_FIELDS]
+
+    def start_serialization(self):
+        self.create_workbook()
+
     def start_object(self, obj):
+
         if not hasattr(obj, "_meta"):
             raise base.SerializationError("Non-model object (%s) encountered during serialization" % type(obj))
 
-        # The first time this method is called, write the model object and field names
-        if self.current_row < 3:
-            self.ws['A1'] = obj._meta.label
-            self.model_fields = dict([(mf.name, mf) for mf in obj._meta.fields if mf.serialize])
-            self.mf_keys = list(self.model_fields.keys())
-            self.ws.append(self.mf_keys) # appends a new row with the values in the iterable
-            self.field_positions = {key: index for index, key in enumerate(self.mf_keys)}
-            self.num_fields = len(self.mf_keys)
-        # prepare for another row of field values
-        self.current_row += 1
+        if not self.has_sheet(obj._meta.label):
+            self.create_sheet(obj._meta.label)
+            self.select_sheet(obj._meta.label)
+            self.create_hearder(self._fields_name_from_obj(obj))
+
+        self.increase_cursor()
 
     def handle_field(self, obj, field):
-        """
-        Do any special handling of field values. For example, save datetime values with timestamps
-        :param obj:
-        :param field:
-        :return:
-        """
-        if getattr(obj, field.name) is not None:
-            try:
-                if isinstance(field, models.BooleanField):
-                    value = field.value_from_object(obj)
-                elif isinstance(field, models.DateTimeField):
-                    value = field.value_from_object(obj).strftime(PREFERRED_TS_FORMAT)
-                elif isinstance(field, models.DateField):
-                    value = field.value_from_object(obj)
-                elif isinstance(field, models.DecimalField):
-                    value = field.value_from_object(obj)
-                else:
-                    # Get a "string version" of the object's data.
-                    value = field.value_to_string(obj)
-                self.ws[self.current_row][self.field_positions[field.name]].value = value
-            except base.SerializationError:
-                raise ValueError("%s.%s (pk:%s) contains unserializable characters" %
-                                        (obj.__class__.__name__, field.name, obj.pk))
-        else:
-            # ToDo: do nothing or add a None-signifying value to the sheet?
-            pass
+
+        try:
+            if isinstance(field, models.BooleanField):
+                value = field.value_from_object(obj)
+            elif isinstance(field, models.DateTimeField):
+                value = field.value_from_object(obj).strftime(PREFERRED_TS_FORMAT)
+            elif isinstance(field, models.DateField):
+                value = field.value_from_object(obj)
+            elif isinstance(field, models.DecimalField):
+                value = field.value_from_object(obj)
+            else:
+                value = field.value_to_string(obj)
+
+            self.add_cell(obj, field, value)
+
+        except base.SerializationError:
+            raise ValueError("%s.%s (pk:%s) contains unserializable characters" %
+                             (obj.__class__.__name__, field.name, obj.pk))
 
     def handle_fk_field(self, obj, field):
+
+        #print('handle_fk_field: ', obj, ' - ', field)
+        value = field.value_from_object(obj)
+        self.add_cell(obj, field, value)
+
         pass
 
     def handle_m2m_field(self, obj, field):
+        #print('handle_m2m_field: ', obj, ' - ', field)
         pass
 
     def end_serialization(self):
+
+        print('end_serialization')
+
+        self.save_workbook('')
+
         filename = self.stream.name
         if filename == '<stdout>':
             # If there is no file, dump a CSV representation to stdout
@@ -99,6 +204,9 @@ class Serializer(base.Serializer):
             save_workbook(self.wb, filename)
 
     def csv(self, worksheet):
+
+        print('cvs')
+
         """
 
         :param worksheet:

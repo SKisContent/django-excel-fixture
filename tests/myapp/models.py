@@ -51,8 +51,8 @@ class Association(models.Model):
     ingredient = models.ForeignKey('Ingredient', on_delete=models.CASCADE)
     amount = models.PositiveIntegerField(null=True, blank=True)
 
-    def __unicode__(self):
-        return self.name
+    #def __unicode__(self):
+    #    return str(self.recipe) + ' | ' + str(self.ingredient) + ' | ' + self.amount
 
-    def __str__(self):
-        return self.name
+    #def __str__(self):
+    #    return str(self.recipe) + ' | ' + str(self.ingredient) + ' | ' + self.amount

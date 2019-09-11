@@ -6,12 +6,12 @@ Django Fixtures using excel files. Easily importing, exporting and test data.
 
 
 ## Installation
--
+
 Soon, to be pip-ified project. For now, install by hand (see master branch).
 
 
 ## Usage
--
+
 If you already have some data in the database, to save it use:
 
 ```./manage.py dumpdata myapp1.MyModelName --format xlsx --output myfilename.xlsx```
