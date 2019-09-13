@@ -87,6 +87,14 @@ class XlsxSerializerUnitTest(TestCase):
             self.xlsx_serializer.start_object(self.obj)
             self.assertEquals(i, self.xlsx_serializer.current_row)
 
+    def test_start_object_active_sheet(self):
+        """ When second obj is started, active sheet should change"""
+        self._start_object()
+        self.obj = Association.objects.first()
+        self.xlsx_serializer.start_object(self.obj)
+        last_sheet = self.xlsx_serializer.workbook['myapp.Association']
+        self.assertEquals(last_sheet, self.xlsx_serializer.workbook.active)
+
     @skip('To be implemented')
     def test_sheet_header_format(self):
         """ The header should be formated. """
@@ -107,6 +115,10 @@ class XlsxSerializerUnitTest(TestCase):
         self.assertEquals('John Smith', self.xlsx_serializer.workbook['myapp.Person']['B3'].value)
         self.xlsx_serializer.handle_field(self.obj, self.obj._meta.fields[2])
         self.assertEquals(51, self.xlsx_serializer.workbook['myapp.Person']['C3'].value)
+
+    @skip('DateTimeField without value, should now crash')
+    def test_handle_field_empty(self):
+        pass
 
     def test_handle_fk_field(self):
         self.obj = Association.objects.first()

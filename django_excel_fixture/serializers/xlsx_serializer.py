@@ -97,7 +97,8 @@ class Serializer(base.Serializer):
 
         sheet_name = obj._meta.label
         if sheet_name not in self.workbook.get_sheet_names():
-            self.workbook.create_sheet(sheet_name)
+            sheet = self.workbook.create_sheet(sheet_name)
+            self.workbook.active = sheet
 
             # Create header:
             for index, field in enumerate(obj._meta.fields):
@@ -127,7 +128,13 @@ class Serializer(base.Serializer):
         try:
 
             if isinstance(field, models.DateTimeField):
-                value = field.value_from_object(obj).strftime(PREFERRED_TS_FORMAT)
+                value = field.value_from_object(obj)
+                if value:
+                    value = value.strftime(PREFERRED_TS_FORMAT)
+
+            elif isinstance(field, models.ImageField):
+                value = field.value_to_string(obj)
+
             elif type(field) in self.COMPATIBLE_FIELDS:
                 value = field.value_from_object(obj)
             else:
@@ -169,7 +176,7 @@ class Serializer(base.Serializer):
             # The default stream is opened in text mode, but we need binary
             self.stream.close()
             # Just use the openpyxl saving method
-            save_workbook(self.wb, filename)
+            save_workbook(self.workbook, filename)
 
 
     def csv(self, worksheet):
