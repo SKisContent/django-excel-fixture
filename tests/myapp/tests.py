@@ -40,13 +40,17 @@ class XlsxSerializerUnitTest(TestCase):
     def setUp(self):
         XLSXSerializer = serializers.get_serializer("xlsx")
         self.xlsx_serializer = XLSXSerializer()
+        # Mocking:
+        self.xlsx_serializer.use_natural_primary_keys = False
 
     def test_start_serialization(self):
+        """ A new serializer should have a workbook. """
         self.assertIsNone(self.xlsx_serializer.workbook)
         self.xlsx_serializer.start_serialization()
         self.assertIsInstance(self.xlsx_serializer.workbook, Workbook)
 
     def test_after_start_number_of_sheet(self):
+        """ A new serializer should have no sheet. """
         self.xlsx_serializer.start_serialization()
         self.assertEquals(0, len(self.xlsx_serializer.workbook.worksheets))
 
@@ -84,9 +88,7 @@ class XlsxSerializerUnitTest(TestCase):
         self.assertEquals('center', self.xlsx_serializer.workbook['myapp.Person']['A1'].alignment.vertical)
 
     def test_start_object_current_row(self):
-        """
-        After creating a new sheet, current row should be pointing to line 2.
-        """
+        """ After creating a new sheet, current row should be pointing to line 2. """
         self._start_object()
         self.assertEquals(2, self.xlsx_serializer.current_row)
 
@@ -106,7 +108,17 @@ class XlsxSerializerUnitTest(TestCase):
         last_sheet = self.xlsx_serializer.workbook['myapp.Association']
         self.assertEquals(last_sheet, self.xlsx_serializer.workbook.active)
 
+    def test_start_object_add_pk(self):
+        """ start_object should add primary key when NOT natural primary_keys. """
+        self._start_object()
+        for i in range(3, 10):
+            obj = Person(name='Henrique Portela', age=41)
+            obj.save()
+            self.xlsx_serializer.start_object(obj)
+            self.assertEquals(obj.pk, self.xlsx_serializer.workbook['myapp.Person'].cell(row=i, column=1).value)
+
     def test_handle_field(self):
+        """ handle_field should add the value to the correct cell. """
         self._start_object()
 
         self.xlsx_serializer.handle_field(self.obj, self.obj._meta.fields[1])
@@ -126,7 +138,17 @@ class XlsxSerializerUnitTest(TestCase):
     def test_handle_field_empty(self):
         pass
 
+    @skip('Test internal implementation')
+    def test_column_index(self):
+        """ DANGER """
+        """ DANGER """
+        """ DANGER """
+        """ DANGER """
+        """ DANGER """
+        raise Exception('_column_index has a major limitation')
+
     def test_handle_fk_field(self):
+        """ handle_fk_field should add the value to the correct cell. """
         self.obj = Association.objects.first()
         self.xlsx_serializer.start_serialization()
         self.xlsx_serializer.start_object(self.obj)

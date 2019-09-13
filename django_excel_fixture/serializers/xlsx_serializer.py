@@ -139,6 +139,11 @@ class Serializer(base.Serializer):
         # Increase row cursor:
         self.current_row += 1
 
+        # Add primary key:
+        if not self.use_natural_primary_keys or not hasattr(obj, 'natural_key'):
+            obj_pk = obj.pk
+            if obj_pk is not None:
+                self.workbook[sheet_name].cell(row=self.current_row, column=1, value=obj_pk)
 
     def _column_index(self, field_name):
         """ Return the column index for the ACTIVE sheet"""
@@ -149,8 +154,6 @@ class Serializer(base.Serializer):
                 return i
 
         raise Exception('Field name "{}" not found in sheet'.format(field_name))
-
-
 
     def handle_field(self, obj, field):
 
