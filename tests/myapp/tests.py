@@ -72,6 +72,17 @@ class XlsxSerializerUnitTest(TestCase):
         self.assertEquals('name' , self.xlsx_serializer.workbook['myapp.Person']['B1'].value)
         self.assertEquals('age' , self.xlsx_serializer.workbook['myapp.Person']['C1'].value)
 
+    def test_sheet_header_format(self):
+        """ The header should be formated. """
+        self._start_object()
+        self.assertEquals('Calibri', self.xlsx_serializer.workbook['myapp.Person']['A1'].font.name)
+        self.assertEquals(11, self.xlsx_serializer.workbook['myapp.Person']['A1'].font.size)
+        self.assertEquals(True, self.xlsx_serializer.workbook['myapp.Person']['A1'].font.bold)
+        self.assertEquals('solid', self.xlsx_serializer.workbook['myapp.Person']['A1'].fill.patternType)
+        self.assertEquals('009BBB59', self.xlsx_serializer.workbook['myapp.Person']['A1'].fill.fgColor.rgb)
+        self.assertEquals('center', self.xlsx_serializer.workbook['myapp.Person']['A1'].alignment.horizontal)
+        self.assertEquals('center', self.xlsx_serializer.workbook['myapp.Person']['A1'].alignment.vertical)
+
     def test_start_object_current_row(self):
         """
         After creating a new sheet, current row should be pointing to line 2.
@@ -94,11 +105,6 @@ class XlsxSerializerUnitTest(TestCase):
         self.xlsx_serializer.start_object(self.obj)
         last_sheet = self.xlsx_serializer.workbook['myapp.Association']
         self.assertEquals(last_sheet, self.xlsx_serializer.workbook.active)
-
-    @skip('To be implemented')
-    def test_sheet_header_format(self):
-        """ The header should be formated. """
-        raise Exception('Not implementes yet.')
 
     def test_handle_field(self):
         self._start_object()

@@ -20,6 +20,8 @@ from django.utils import timezone
 from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Alignment
 from openpyxl.writer.excel import save_workbook
+from openpyxl.styles import PatternFill, Border, Side, Alignment, Protection, Font, Color
+from openpyxl.styles import colors, borders, fills
 
 from django.db import models
 from django.db.models import AutoField, BooleanField, CharField, DurationField, DateTimeField, ForeignKey, DecimalField, \
@@ -34,6 +36,30 @@ DATETIME_FORMATS = {r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{6}[-+]\d{4}':PREFER
                     r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{6}':'%Y-%m-%d %H:%M:%S:%f',
                     r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}':'%Y-%m-%d %H:%M:%S',
                     }
+
+HEADER_FORMAT = {
+    'bg_color': '#9BBB59',
+    'bold': True,
+    'font_size': 14,
+    'align': 'center',
+    'valign': 'vcenter'
+}
+
+HEADER_FORMAT = {
+    'font': Font(
+        name='Calibri',
+        size=11,
+        bold=True,
+    ),
+    'fill': PatternFill(
+        fill_type='solid',
+        fgColor='9BBB59',
+    ),
+    'alignment': Alignment(
+        horizontal='center',
+        vertical='center',
+    ),
+}
 
 
 class Serializer(base.Serializer):
@@ -103,6 +129,9 @@ class Serializer(base.Serializer):
             # Create header:
             for index, field in enumerate(obj._meta.fields):
                 self.workbook[sheet_name].cell(row=1, column=(index+1), value=field.name)
+                self.workbook[sheet_name].cell(row=1, column=(index+1)).font = HEADER_FORMAT['font']
+                self.workbook[sheet_name].cell(row=1, column=(index+1)).fill = HEADER_FORMAT['fill']
+                self.workbook[sheet_name].cell(row=1, column=(index+1)).alignment = HEADER_FORMAT['alignment']
 
             # Set current row
             self.current_row = 1
