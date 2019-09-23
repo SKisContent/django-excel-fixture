@@ -138,14 +138,11 @@ class XlsxSerializerUnitTest(TestCase):
     def test_handle_field_empty(self):
         pass
 
-    @skip('Test internal implementation')
     def test_column_index(self):
-        """ DANGER """
-        """ DANGER """
-        """ DANGER """
-        """ DANGER """
-        """ DANGER """
-        raise Exception('_column_index has a major limitation')
+        self._start_object()
+        self.assertEquals(1, self.xlsx_serializer._column_index('id'))
+        self.assertEquals(2, self.xlsx_serializer._column_index('name'))
+        self.assertEquals(3, self.xlsx_serializer._column_index('age'))
 
     def test_handle_fk_field(self):
         """ handle_fk_field should add the value to the correct cell. """

@@ -38,14 +38,6 @@ DATETIME_FORMATS = {r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{6}[-+]\d{4}':PREFER
                     }
 
 HEADER_FORMAT = {
-    'bg_color': '#9BBB59',
-    'bold': True,
-    'font_size': 14,
-    'align': 'center',
-    'valign': 'vcenter'
-}
-
-HEADER_FORMAT = {
     'font': Font(
         name='Calibri',
         size=11,
@@ -148,8 +140,7 @@ class Serializer(base.Serializer):
     def _column_index(self, field_name):
         """ Return the column index for the ACTIVE sheet"""
 
-        # Quick and dirty - for now...
-        for i in range(1,100):
+        for i in range(1, self.workbook.active.max_column+1):
             if field_name == self.workbook.active.cell(row=1, column=i).value:
                 return i
 
@@ -233,6 +224,7 @@ def wrap(value):
 
 
 class Deserializer(base.Deserializer):
+
     def __init__(self, stream_or_string, **options):
         super(Deserializer, self).__init__(stream_or_string, **options)
         wb = load_workbook(stream_or_string)
