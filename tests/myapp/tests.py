@@ -7,6 +7,10 @@ from django.test import TestCase
 from openpyxl import Workbook
 from unittest import skip
 
+from io import StringIO, BytesIO
+
+from openpyxl.writer.excel import save_workbook
+
 from .models import Person, Recipe, Ingredient, Association
 
 
@@ -139,6 +143,7 @@ class XlsxSerializerUnitTest(TestCase):
         pass
 
     def test_column_index(self):
+        """ _column_index should return the index from field value. """
         self._start_object()
         self.assertEquals(1, self.xlsx_serializer._column_index('id'))
         self.assertEquals(2, self.xlsx_serializer._column_index('name'))
@@ -154,3 +159,112 @@ class XlsxSerializerUnitTest(TestCase):
         self.assertEquals(1, self.xlsx_serializer.workbook['myapp.Association']['B2'].value)
         self.xlsx_serializer.handle_fk_field(self.obj, self.obj._meta.fields[2])
         self.assertEquals(1, self.xlsx_serializer.workbook['myapp.Association']['C2'].value)
+
+
+class XlsxDeserializerUnitTest(TestCase):
+
+    def _get_xlsx_stream(self):
+        workbook = Workbook()
+
+        # Remove auto-created sheet:
+        name = workbook.get_sheet_names()[0]
+        sheet = workbook.get_sheet_by_name(name)
+        workbook.remove_sheet(sheet)
+
+        # Add first model sheet:
+        sheet1 = workbook.create_sheet('myapp.Person')
+        workbook.active = sheet1 # Don't know if this line is needed.
+        # Add header:
+        workbook['myapp.Person'].cell(row=1, column=1, value='id')
+        workbook['myapp.Person'].cell(row=1, column=2, value='name')
+        workbook['myapp.Person'].cell(row=1, column=3, value='age')
+        # Add content 1:
+        workbook['myapp.Person'].cell(row=2, column=1, value=1)
+        workbook['myapp.Person'].cell(row=2, column=2, value='Person 1')
+        workbook['myapp.Person'].cell(row=2, column=3, value=21)
+        # Add content 2:
+        workbook['myapp.Person'].cell(row=3, column=1, value=2)
+        workbook['myapp.Person'].cell(row=3, column=2, value='Person 2')
+        workbook['myapp.Person'].cell(row=3, column=3, value=22)
+        # Add content 3:
+        workbook['myapp.Person'].cell(row=4, column=1, value=3)
+        workbook['myapp.Person'].cell(row=4, column=2, value='Person 3')
+        workbook['myapp.Person'].cell(row=4, column=3, value=23)
+
+        # Add second model sheet:
+        sheet1 = workbook.create_sheet('myapp.Ingredient')
+        workbook.active = sheet1 # Don't know if this line is needed.
+        # Add header:
+        workbook['myapp.Ingredient'].cell(row=1, column=1, value='id')
+        workbook['myapp.Ingredient'].cell(row=1, column=2, value='name')
+        # Add content 1:
+        workbook['myapp.Ingredient'].cell(row=2, column=1, value=1)
+        workbook['myapp.Ingredient'].cell(row=2, column=2, value='Ingredient 1')
+        # Add content 2:
+        workbook['myapp.Ingredient'].cell(row=3, column=1, value=2)
+        workbook['myapp.Ingredient'].cell(row=3, column=2, value='Ingredient 2')
+        # Add content 3:
+        workbook['myapp.Ingredient'].cell(row=4, column=1, value=3)
+        workbook['myapp.Ingredient'].cell(row=4, column=2, value='Ingredient 3')
+        # Add content 4:
+        workbook['myapp.Ingredient'].cell(row=4, column=1, value=4)
+        workbook['myapp.Ingredient'].cell(row=4, column=2, value='Ingredient 4')
+
+        # Generate in memory stream:
+        # About StringIO:
+        #       Implements a file-like class that reads and writes a string
+        #       buffer (also known as memory files).
+        in_memory_file = BytesIO()
+        save_workbook(workbook, in_memory_file)
+
+        # Saving the file to inspect:
+        #save_workbook(workbook, 'z_gen_file_01.xlsx')
+
+        return in_memory_file
+
+    @classmethod
+    def setUpTestData(cls):
+        pass
+
+    def setUp(self):
+        XLSXDeserializer = serializers.get_deserializer("xlsx")
+        self.xlsx_deserializer = XLSXDeserializer(self._get_xlsx_stream())
+        # result = list(self.xlsx_deserializer)
+        # print(Person.objects.all())
+
+    def test_test(self):
+        self.assertTrue(True)
+
+    @skip('Just for now.')
+    def test_objects_must_be_saved(self):
+        list(self.xlsx_deserializer)
+
+        # All the objects in the first sheet must be saved:
+        self.assertEqual(3, Person.objects.all().count())
+        self.assertEquals(1, Person.objects.first().id)
+        self.assertEquals('Person 1', Person.objects.first().name)
+        self.assertEquals(21, Person.objects.first().age)
+
+        # All the objects in the second sheet must be saved:
+        self.assertEqual(4, Ingredient.objects.all().count())
+        self.assertEquals(1, Ingredient.objects.first().id)
+        self.assertEquals('Ingredient 1', Ingredient.objects.first().name)
+
+
+    @skip('just for now')
+    def test_current_sheet(self):
+        workbook = self.xlsx_deserializer.workbook
+
+
+    def test_has_next_sheet(self):
+        workbook = self.xlsx_deserializer.workbook
+        sheet1 = workbook['myapp.Person']
+        sheet2 = workbook['myapp.Ingredient']
+
+        # Activate sheet 1:
+        workbook.active = sheet1
+        self.assertTrue(self.xlsx_deserializer._has_next_sheet())
+
+        #Activate sheet 2:
+        workbook.active = sheet2
+        self.assertFalse(self.xlsx_deserializer._has_next_sheet())
