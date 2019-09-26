@@ -195,7 +195,7 @@ class Serializer(base.Serializer):
         filename = self.stream.name
         if filename == '<stdout>':
             # If there is no file, dump a CSV representation to stdout
-            out_str = self.csv(self.ws)
+            out_str = self.csv(self.workbook.active)
             self.stream.write(out_str)
         else:
             # The default stream is opened in text mode, but we need binary
@@ -234,142 +234,103 @@ class Deserializer(base.Deserializer):
     """
 
     def __init__(self, stream_or_string, **options):
-
-        print('init')
-
         super(Deserializer, self).__init__(stream_or_string, **options)
-
         self.workbook = load_workbook(stream_or_string)
-        self.ws = self.workbook.active
+        self._select_first_sheet()
 
-        # Starting first model:
-        first_sheet_name = self.workbook.sheetnames[0]
-        self._start_sheet(first_sheet_name)
+    def __next__(self):
 
-    @property
-    def _current_sheet_title(self):
-        """
-        There is no need for this method.
-        self.workbook.active.title is clear enough.
-        """
-        return self.workbook.active.title
+        if self._current_row_is_valid():
+            try:
+                self._select_next_sheet()
+            except:
+                raise StopIteration
 
-    def _current_sheet(self):
-        """
-        There is no need for this method.
-        self.workbook.active is clear enough.
-        """
-        return self.workbook.active
+        # Build object:
+        values = self._row_to_dict(self.workbook.active[self.current_row], self.fields)
+        obj = base.build_instance(self.model_class, values, False)
+        obj.save()
+
+        # Updata row position:
+        self.current_row += 1
+
+        return base.DeserializedObject(obj, {})
 
     def _has_next_sheet(self):
         sheets = self.workbook.get_sheet_names()
         return sheets.index(self.workbook.active.title) < (len(sheets)-1)
 
-    def _change_to_next_sheet(self):
+    def _select_sheet(self, sheet_name):
+        self.workbook.active = self.workbook[sheet_name]
+        self._start_sheet()
+
+    def _select_first_sheet(self):
+        self._select_sheet(self.workbook.sheetnames[0])
+
+    def _select_next_sheet(self):
         if not self._has_next_sheet():
             raise Exception('Workbook can not change_to_next_sheet')
+        current_index = self.workbook.sheetnames.index(self.workbook.active.title)
+        next_sheet_name = self.workbook.sheetnames[current_index+1]
+        self._select_sheet(next_sheet_name)
 
-        print('change_to_next_sheet')
+    def _start_sheet(self):
+        """
+        start all the properties associated with the active sheet, including:
+        model_class, model_fields, num_fields, num_objects, fields, current_row.
+        """
+        self.model_class = self._get_model(self.workbook.active)
+        model_fields = dict([(mf.name, mf) for mf in self.model_class._meta.fields])
+        self.num_fields = len(self.workbook.active['1'])        # number of columns
+        self.num_objects = len(self.workbook.active['A']) - 1   # number of rows - 1
+        self.fields = [(cell.value, model_fields[cell.value]) for cell in self.workbook.active[1]]
+        self._reset_current_row()
 
-        sheet_names = self.workbook.get_sheet_names()
-        current_sheet_index = sheet_names.index(self.workbook.active.title)
-        next_sheet_index = current_sheet_index + 1
-        next_sheet_title = sheet_names[next_sheet_index]
+    def _current_row_is_valid(self):
+        return self.current_row - 1 >= self.num_objects
 
-        self.workbook.active = self.workbook[next_sheet_title]
-        self.ws = self.workbook.active
-
-        self._start_sheet(next_sheet_title)
-
-    def _start_sheet(self, sheet_name):
-        print('_start_sheet')
-
-        self.model_class = self._get_model(sheet_name)
-        self.model_fields = dict([(mf.name, mf) for mf in self.model_class._meta.fields])
-
-        # This code should not be here:
-        if self.workbook.active.title is not sheet_name:
-            self.workbook.active = self.workbook[sheet_name]
-            self.ws = self.workbook.active
-
-        self.num_fields = len(self.ws['1'])
-        self.num_objects = len(self.ws['A']) - 1
-
-        self.fields = [(cell.value, self.model_fields[cell.value]) for cell in self.ws[1]]
-        self.auto_now_fields = [af for af in self.model_class._meta.fields
-                                if (hasattr(af, 'auto_now') and af.auto_now) or
-                                   (hasattr(af, 'auto_now_add') and af.auto_now_add)]
-
-        # row 1 is index 1, not 0!!
+    def _reset_current_row(self):
+        """
+        first row with content is row number 2.
+        Row index starts at 1, and first row is header.
+        """
         self.current_row = 2
 
-
-    def __next__(self):
-
-        print('next')
-
-        if self.current_row == self.num_objects + 1:
-            if self._has_next_sheet():
-                self._change_to_next_sheet()
-                print('next_sheet')
-
-        if self.current_row < self.num_objects + 2:
-            values = {}
-            for ix in range(self.num_fields):
-                values[self.fields[ix][0]] = self.get_value(self.ws[self.current_row][ix], self.fields[ix][1])
-            present = datetime.now()
-
-            print('values:', values)
-
-            # The following is not necessary since we are saving the object using it's save method
-            # However, it doesn't hurt
-            for af in self.auto_now_fields:
-                if af.name not in values or values[af.name] is None:
-                    values[af.name] = present
-
-            for field in self.fields:
-                if type(field[1]) is models.fields.related.ForeignKey:
-                    #print('field:', field)
-                    #print('field.name', field[1].name)
-                    #print('value', values[field[1].name])
-                    #print('field.related_model:', field[1].related_model)
-                    #print('field.related_model..first():', field[1].related_model.objects.first())
-                    #print('field.related_model..get():', field[1].related_model.objects.get(pk=values[field[1].name]))
-                    field_name = field[1].name
-                    field_value =  field[1].related_model.objects.get(pk=values[field[1].name])
-                    values[field_name] = field_value
-
-            # print(django.db.models.fields.related.ForeignKey)
-            # print('0')
-            obj = base.build_instance(self.model_class, values, False)
-            # print('1')
-            self.current_row += 1
-            # print('2')
-            # print('obj', obj.__dict__)
-            # print('obj', obj.clean())
-            obj.save()
-            # print('3')
-            return base.DeserializedObject(obj, {})
-
-        raise StopIteration
-
-    def _get_model(self, model_identifier):
-
-        print('_get_model:', model_identifier)
-
+    def _get_model(self, sheet):
         """
-        Look up model
+        Each sheet on the spreadsheet represents a model.
+        Returns the model class from a specific sheet.
         """
-        if not model_identifier:
+
+        if not sheet.title:
             raise base.DeserializationError("Worksheet is missing the required model name")
         try:
-            return apps.get_model(model_identifier)
+            return apps.get_model(sheet.title)
         except (LookupError, TypeError):
-            raise base.DeserializationError("Worksheet has invalid model identifier: '%s'" % (model_identifier))
+            raise base.DeserializationError("Worksheet has invalid model identifier: '%s'" % (sheet.title))
+
+    def _row_to_dict(self, row, fields):
+        """
+        Convert a spreadsheet row to a python dictionary taking into
+        consideration the current model and field order (previous extracted from
+        the spreadsheet's header).
+        """
+        values = {}
+
+        # Getting all values from each column (on the row):
+        for index, (field_name, field) in enumerate(fields):
+            cell = row[index]
+            values[field_name] = self.get_value(cell, field)
+
+        return values
 
     def get_value(self, cell, field):
-
-        print('get_value - cell:', cell, ' - field:', field, ' - type:', type(cell.value))
+        """
+        Returns the value of the cell casted to the proper field type
+        :param cell:
+        :param field:
+        :return:
+        """
 
         # Empty cell:
         if cell.value is None:
@@ -380,7 +341,10 @@ class Deserializer(base.Deserializer):
             raise base.DeserializationError("Formulas are not supported at this time. Cell %s%s" % (cell.row, cell.column))
 
         # Process each field type:
-        if isinstance(field, models.BooleanField):
+        elif isinstance(field, models.AutoField):
+            return cell.value
+
+        elif isinstance(field, models.BooleanField):
             return cell.value if type(cell.value) is bool else bool(cell.value)
 
         elif isinstance(field, models.DateTimeField):
@@ -405,10 +369,12 @@ class Deserializer(base.Deserializer):
                 return cell.value.date()
             else:
                 return cell.value if type(cell.value) is date else datetime.strptime(cell.value, Y_M_D_FORMAT).date()
+
         elif isinstance(field, models.DecimalField):
             try:
                 return decimal.Decimal(cell.value)
             except Exception as ex:
                 print(cell.value)
+
         else:
             return str(cell.value)
