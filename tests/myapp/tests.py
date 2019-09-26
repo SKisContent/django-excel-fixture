@@ -1,16 +1,12 @@
 # coding: utf-8
-
-from django.conf import settings
+from django.db import models
+from io import BytesIO
+from unittest import skip
+from unittest.mock import patch, MagicMock
 from django.core import serializers
-
 from django.test import TestCase
 from openpyxl import Workbook
-from unittest import skip
-
-from io import StringIO, BytesIO
-
 from openpyxl.writer.excel import save_workbook
-
 from .models import Person, Recipe, Ingredient, Association
 
 
@@ -207,8 +203,8 @@ class XlsxDeserializerUnitTest(TestCase):
         workbook['myapp.Ingredient'].cell(row=4, column=1, value=3)
         workbook['myapp.Ingredient'].cell(row=4, column=2, value='Ingredient 3')
         # Add content 4:
-        workbook['myapp.Ingredient'].cell(row=4, column=1, value=4)
-        workbook['myapp.Ingredient'].cell(row=4, column=2, value='Ingredient 4')
+        workbook['myapp.Ingredient'].cell(row=5, column=1, value=4)
+        workbook['myapp.Ingredient'].cell(row=5, column=2, value='Ingredient 4')
 
         # Generate in memory stream:
         # About StringIO:
@@ -229,11 +225,6 @@ class XlsxDeserializerUnitTest(TestCase):
     def setUp(self):
         XLSXDeserializer = serializers.get_deserializer("xlsx")
         self.xlsx_deserializer = XLSXDeserializer(self._get_xlsx_stream())
-        # result = list(self.xlsx_deserializer)
-        # print(Person.objects.all())
-
-    def test_test(self):
-        self.assertTrue(True)
 
     @skip('Just for now.')
     def test_objects_must_be_saved(self):
@@ -250,11 +241,32 @@ class XlsxDeserializerUnitTest(TestCase):
         self.assertEquals(1, Ingredient.objects.first().id)
         self.assertEquals('Ingredient 1', Ingredient.objects.first().name)
 
-
-    @skip('just for now')
     def test_current_sheet(self):
+        """ _current_sheet should be removed in the code. """
         workbook = self.xlsx_deserializer.workbook
+        sheet1 = workbook['myapp.Person']
+        sheet2 = workbook['myapp.Ingredient']
 
+        # Activate sheet 1:
+        workbook.active = sheet1
+        self.assertEqual(sheet1, self.xlsx_deserializer._current_sheet())
+
+        # Activate sheet 2:
+        workbook.active = sheet2
+        self.assertEqual(sheet2, self.xlsx_deserializer._current_sheet())
+
+    def test_current_sheet_title(self):
+        workbook = self.xlsx_deserializer.workbook
+        sheet1 = workbook['myapp.Person']
+        sheet2 = workbook['myapp.Ingredient']
+
+        # Activate sheet 1:
+        workbook.active = sheet1
+        self.assertEquals('myapp.Person', self.xlsx_deserializer._current_sheet_title)
+
+        #Activate sheet 2:
+        workbook.active = sheet2
+        self.assertEquals('myapp.Ingredient', self.xlsx_deserializer._current_sheet_title)
 
     def test_has_next_sheet(self):
         workbook = self.xlsx_deserializer.workbook
@@ -268,3 +280,164 @@ class XlsxDeserializerUnitTest(TestCase):
         #Activate sheet 2:
         workbook.active = sheet2
         self.assertFalse(self.xlsx_deserializer._has_next_sheet())
+
+    def test_change_to_next_sheet(self):
+        workbook = self.xlsx_deserializer.workbook
+        sheet1 = workbook['myapp.Person']
+        sheet2 = workbook['myapp.Ingredient']
+
+        # Activate sheet 1:
+        workbook.active = sheet1
+        self.assertEqual(sheet1, workbook.active)
+        self.assertEqual('myapp.Person', workbook.active.title)
+
+        # Change_to_next_sheet:
+        self.xlsx_deserializer._change_to_next_sheet()
+        self.assertEqual(sheet2, workbook.active)
+        self.assertEqual('myapp.Ingredient', workbook.active.title)
+
+    def test_change_to_next_sheet_exception(self):
+        """ change_to_next_sheet must raise exception when in last sheet"""
+        workbook = self.xlsx_deserializer.workbook
+        sheet1 = workbook['myapp.Person']
+        sheet2 = workbook['myapp.Ingredient']
+
+        # Activate sheet 2 (no next sheet):
+        workbook.active = sheet2
+        with self.assertRaises(Exception) as context:
+            self.xlsx_deserializer._change_to_next_sheet()
+
+    def test_change_to_next_sheet_should_call_start_sheet(self):
+        """ change_to_next_sheet should start the next sheet."""
+        workbook = self.xlsx_deserializer.workbook
+        sheet1 = workbook['myapp.Person']
+        sheet2 = workbook['myapp.Ingredient']
+
+        # Activate sheet 1:
+        workbook.active = sheet1
+
+        # Mocking:
+        with patch('django_excel_fixture.serializers.xlsx_serializer.Deserializer._start_sheet') as start_sheet:
+            self.xlsx_deserializer._change_to_next_sheet()
+            start_sheet.assert_called()
+            start_sheet.assert_called_with('myapp.Ingredient')
+
+    def test_start_sheet_update_current_model(self):
+        """ start_sheet should update current model."""
+        workbook = self.xlsx_deserializer.workbook
+        sheet1 = workbook['myapp.Person']
+        sheet2 = workbook['myapp.Ingredient']
+
+        # start_sheet 1:
+        self.xlsx_deserializer._start_sheet('myapp.Person')
+        self.assertEquals(Person, self.xlsx_deserializer.model_class)
+
+        # start_sheet 2:
+        self.xlsx_deserializer._start_sheet('myapp.Ingredient')
+        self.assertEquals(Ingredient, self.xlsx_deserializer.model_class)
+
+    def test_start_sheet_update_model_fields_dict(self):
+        """ start_sheet should update field list. """
+        workbook = self.xlsx_deserializer.workbook
+        sheet1 = workbook['myapp.Person']
+        sheet2 = workbook['myapp.Ingredient']
+
+        # start_sheet 1:
+        self.xlsx_deserializer._start_sheet('myapp.Person')
+
+
+        for key in ['id', 'name', 'age']:
+            self.assertIn(key, self.xlsx_deserializer.model_fields)
+
+        self.assertIsInstance(
+            self.xlsx_deserializer.model_fields['id'],
+            models.fields.AutoField
+        )
+        self.assertIsInstance(
+            self.xlsx_deserializer.model_fields['name'],
+            models.fields.CharField
+        )
+        self.assertIsInstance(
+            self.xlsx_deserializer.model_fields['age'],
+            models.fields.IntegerField
+        )
+        """
+        {
+            'id': < django.db.models.fields.AutoField: id >, 
+            'name': < django.db.models.fields.CharField: name >, 
+            'age': < django.db.models.fields.IntegerField: age >,
+        }
+        """
+
+        # start_sheet 2:
+        self.xlsx_deserializer._start_sheet('myapp.Ingredient')
+        for key in ['id', 'name']:
+            self.assertIn(key, self.xlsx_deserializer.model_fields)
+
+        # Just to be sure, since both models are very close to each other:
+        self.assertNotIn('age', self.xlsx_deserializer.model_fields)
+
+        self.assertIsInstance(
+            self.xlsx_deserializer.model_fields['id'],
+            models.fields.AutoField
+        )
+        self.assertIsInstance(
+            self.xlsx_deserializer.model_fields['name'],
+            models.fields.CharField
+        )
+
+        """
+        {
+            'id': <django.db.models.fields.AutoField: id>, 
+            'name': <django.db.models.fields.CharField: name>
+        }
+        """
+
+    def test_start_sheet_update_active_sheet(self):
+        """ start_sheet should activate new sheet."""
+        workbook = self.xlsx_deserializer.workbook
+        sheet1 = workbook['myapp.Person']
+        sheet2 = workbook['myapp.Ingredient']
+
+
+        # start_sheet 1:
+        self.xlsx_deserializer._start_sheet('myapp.Person')
+        self.assertEquals('myapp.Person', self.xlsx_deserializer.workbook.active.title)
+        self.assertEquals('myapp.Person', self.xlsx_deserializer.ws.title)
+
+        # start_sheet 2:
+        self.xlsx_deserializer._start_sheet('myapp.Ingredient')
+        self.assertEquals('myapp.Ingredient', self.xlsx_deserializer.workbook.active.title)
+        self.assertEquals('myapp.Ingredient', self.xlsx_deserializer.ws.title)
+
+    def test_start_sheet_update_num_filed_and_num_objects(self):
+        """ start_sheet should update number of fields and number of objects."""
+        workbook = self.xlsx_deserializer.workbook
+        sheet1 = workbook['myapp.Person']
+        sheet2 = workbook['myapp.Ingredient']
+
+        # start_sheet 1:
+        self.xlsx_deserializer._start_sheet('myapp.Person')
+        self.assertEquals(3, self.xlsx_deserializer.num_fields)
+        self.assertEquals(3, self.xlsx_deserializer.num_objects)
+
+        # start_sheet 2:
+        self.xlsx_deserializer._start_sheet('myapp.Ingredient')
+        self.assertEquals(2, self.xlsx_deserializer.num_fields)
+        self.assertEquals(4, self.xlsx_deserializer.num_objects)
+
+    def test_start_sheet_should_reset_current_row(self):
+        """ start_sheet should reset current row to second line (2)."""
+        workbook = self.xlsx_deserializer.workbook
+        sheet1 = workbook['myapp.Person']
+        sheet2 = workbook['myapp.Ingredient']
+
+        # start_sheet 1:
+        self.xlsx_deserializer.current_row = 10
+        self.xlsx_deserializer._start_sheet('myapp.Person')
+        self.assertEquals(2, self.xlsx_deserializer.current_row)
+
+        # start_sheet 2:
+        self.xlsx_deserializer.current_row = 10
+        self.xlsx_deserializer._start_sheet('myapp.Ingredient')
+        self.assertEquals(2, self.xlsx_deserializer.current_row)

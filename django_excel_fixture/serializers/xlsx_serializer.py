@@ -116,7 +116,7 @@ class Serializer(base.Serializer):
 
         sheet_name = obj._meta.label
         if sheet_name not in self.workbook.get_sheet_names():
-            sheet = self.workbook.create_sheet(sheet_name)
+            sheet = self.workbook.create_sheet(sheet_name) # Create sheet in the last position
             self.workbook.active = sheet
 
             # Create header:
@@ -228,6 +228,10 @@ def wrap(value):
 
 
 class Deserializer(base.Deserializer):
+    """
+    openpyxl:
+    workbook.sheetnames  or  workbook.get_sheet_names()
+    """
 
     def __init__(self, stream_or_string, **options):
 
@@ -236,30 +240,41 @@ class Deserializer(base.Deserializer):
         super(Deserializer, self).__init__(stream_or_string, **options)
 
         self.workbook = load_workbook(stream_or_string)
-
         self.ws = self.workbook.active
-        self.current_sheet_title = self.workbook.active.title
-        print('current sheet title:', self.workbook.active.title)
 
         # Starting first model:
-        first_sheet_name = self.workbook.get_sheet_names()[0]
+        first_sheet_name = self.workbook.sheetnames[0]
         self._start_sheet(first_sheet_name)
 
+    @property
+    def _current_sheet_title(self):
+        """
+        There is no need for this method.
+        self.workbook.active.title is clear enough.
+        """
+        return self.workbook.active.title
+
     def _current_sheet(self):
-        print('_current_sheet')
-        return self.workbook[self.current_sheet_title]
+        """
+        There is no need for this method.
+        self.workbook.active is clear enough.
+        """
+        return self.workbook.active
 
     def _has_next_sheet(self):
-        print('_has_next_sheet')
         sheets = self.workbook.get_sheet_names()
-        return sheets.index(self.current_sheet_title) < (len(sheets)-1)
+        return sheets.index(self.workbook.active.title) < (len(sheets)-1)
 
     def _change_to_next_sheet(self):
-        print('_change_to_next_sheet')
-        sheets = self.workbook.get_sheet_names()
-        current_sheet_index = sheets.index(self.current_sheet_title)
+        if not self._has_next_sheet():
+            raise Exception('Workbook can not change_to_next_sheet')
+
+        print('change_to_next_sheet')
+
+        sheet_names = self.workbook.get_sheet_names()
+        current_sheet_index = sheet_names.index(self.workbook.active.title)
         next_sheet_index = current_sheet_index + 1
-        next_sheet_title = sheets[next_sheet_index]
+        next_sheet_title = sheet_names[next_sheet_index]
 
         self.workbook.active = self.workbook[next_sheet_title]
         self.ws = self.workbook.active
@@ -268,23 +283,26 @@ class Deserializer(base.Deserializer):
 
     def _start_sheet(self, sheet_name):
         print('_start_sheet')
-        self.model_identifier = sheet_name
-        self.Model = self._get_model(self.model_identifier)
-        self.model_fields = dict([(mf.name, mf) for mf in self.Model._meta.fields])
+
+        self.model_class = self._get_model(sheet_name)
+        self.model_fields = dict([(mf.name, mf) for mf in self.model_class._meta.fields])
+
+        # This code should not be here:
+        if self.workbook.active.title is not sheet_name:
+            self.workbook.active = self.workbook[sheet_name]
+            self.ws = self.workbook.active
 
         self.num_fields = len(self.ws['1'])
-        print('num_fields:', self.num_fields)
         self.num_objects = len(self.ws['A']) - 1
-        print('num_objects:', self.num_objects)
+
         self.fields = [(cell.value, self.model_fields[cell.value]) for cell in self.ws[1]]
-        print('fields:', self.fields)
-        self.auto_now_fields = [af for af in self.Model._meta.fields
+        self.auto_now_fields = [af for af in self.model_class._meta.fields
                                 if (hasattr(af, 'auto_now') and af.auto_now) or
                                    (hasattr(af, 'auto_now_add') and af.auto_now_add)]
-        print('auto_now_fields:', self.auto_now_fields)
 
         # row 1 is index 1, not 0!!
         self.current_row = 2
+
 
     def __next__(self):
 
@@ -323,7 +341,7 @@ class Deserializer(base.Deserializer):
 
             # print(django.db.models.fields.related.ForeignKey)
             # print('0')
-            obj = base.build_instance(self.Model, values, False)
+            obj = base.build_instance(self.model_class, values, False)
             # print('1')
             self.current_row += 1
             # print('2')
