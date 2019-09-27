@@ -1,6 +1,10 @@
 # Django Excel Fixture
 
-Django Fixtures using excel files. Easily importing, exporting and test data.
+Django-excel-fixture is an easy way to import, export and test using .xlsx file.
+
+## Motivation
+
+Excel is a must in the corporate world. It is a easy to use and highly powerful application, currently being used by millions of users (maybe more than a billion user).Django-excel-fixture provides a way to import, export and use .xlsx file as test fixture.
 
 [![Build Status](https://travis-ci.org/portela/django-excel-fixture.svg?branch=master)](https://travis-ci.org/portela/django-excel-fixture)
 
@@ -9,26 +13,52 @@ Django Fixtures using excel files. Easily importing, exporting and test data.
 
 Soon, to be pip-ified project. For now, install by hand (see master branch).
 
+settings.py:
+```python
+
+INSTALLED_APPS = (
+    ...
+    'django_excel_fixture',
+    ...
+)
+
+```
 
 ## Usage
 
 If you already have some data in the database, to save it use:
 
-```./manage.py dumpdata myapp1.MyModelName --format xlsx --output myfilename.xlsx```
+```console
+python manage.py dumpdata myapp1.MyModelName --format xlsx --output myfilename.xlsx
+```
  
- If you leave out the **output** option, the table is dumped to stdout in CSV format.
+If you leave out the **output** option, the table is dumped to stdout in CSV format.
 
 To manually load the data from the Excel file, use:
 
-```./manage.py loaddata myfilename.xlsx```
+```console
+python manage.py loaddata myfilename.xlsx
+```
  
-To use the fixture in a test, just add
+To use the fixture in a test, just add to the test class.
 
-```    fixtures = ['myfilename.xlsx']```
+```python
+class MyTestCase(TestCase):
+    fixtures = ['myfilename.xlsx']
 
-to the test class.
+    def ...
+```
+
 
 If you need to brush up on fixtures, look at https://django-testing-docs.readthedocs.io/en/latest/fixtures.html.
+
+
+## Excel file format
+
+* Currently, it is only compatible with .xlxs format.
+* Every sheet is a model. The sheet title represents the model.
+* Every column represents a field.
+* Every row represents a object (database entry).
 
 
 ## Contribution
@@ -42,7 +72,7 @@ pip install -r requirements.txt
 python runtests.py
 ```
 
- **_NOTE:_**  On Windows, change line 4 to
+ **_NOTE:_**  On Windows, change line 4.
 
 
 ```console

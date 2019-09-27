@@ -240,7 +240,7 @@ class Deserializer(base.Deserializer):
 
     def __next__(self):
 
-        if self._current_row_is_valid():
+        if not self._current_row_is_valid():
             try:
                 self._select_next_sheet()
             except:
@@ -280,14 +280,14 @@ class Deserializer(base.Deserializer):
         model_class, model_fields, num_fields, num_objects, fields, current_row.
         """
         self.model_class = self._get_model(self.workbook.active)
-        model_fields = dict([(mf.name, mf) for mf in self.model_class._meta.fields])
+        self.model_fields = dict([(mf.name, mf) for mf in self.model_class._meta.fields])
         self.num_fields = len(self.workbook.active['1'])        # number of columns
         self.num_objects = len(self.workbook.active['A']) - 1   # number of rows - 1
-        self.fields = [(cell.value, model_fields[cell.value]) for cell in self.workbook.active[1]]
+        self.fields = [(cell.value, self.model_fields[cell.value]) for cell in self.workbook.active[1]]
         self._reset_current_row()
 
     def _current_row_is_valid(self):
-        return self.current_row - 1 >= self.num_objects
+        return self.current_row <= self.num_objects + 1
 
     def _reset_current_row(self):
         """
