@@ -30,7 +30,7 @@ from django.db.models import AutoField, BooleanField, CharField, DurationField, 
     FloatField, ImageField, GenericIPAddressField, NullBooleanField, PositiveSmallIntegerField, SlugField, \
     SmallIntegerField, TextField, TimeField, URLField, UUIDField
 
-PREFERRED_TS_FORMAT = '%Y-%m-%dT%H:%M:%S:%f%z'
+PREFERRED_TS_FORMAT = '%Y-%m-%d %H:%M:%S:%f%z'
 Y_M_D_FORMAT = '%Y-%m-%d'
 
 DATETIME_FORMATS = {r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{6}[-+]\d{4}':PREFERRED_TS_FORMAT,
@@ -241,15 +241,23 @@ class Deserializer(base.Deserializer):
     def __next__(self):
 
         if not self._current_row_is_valid():
+            """ 
+            If the current row is not valid, next will try to go to the next sheet
+            and deserialize the first object.
+            """
             try:
                 self._select_next_sheet()
             except:
                 raise StopIteration
 
         # Build object:
-        values = self._row_to_dict(self.workbook.active[self.current_row], self.fields)
-        obj = base.build_instance(self.model_class, values, False)
-        obj.save()
+        if self._current_row_is_valid():
+            values = self._row_to_dict(self.workbook.active[self.current_row], self.fields)
+            obj = base.build_instance(self.model_class, values, False)
+            obj.save()
+        else:
+            # Sheets without data (only with header):
+            raise StopIteration
 
         # Updata row position:
         self.current_row += 1
@@ -286,6 +294,7 @@ class Deserializer(base.Deserializer):
         self.fields = [(cell.value, self.model_fields[cell.value]) for cell in self.workbook.active[1]]
         self._reset_current_row()
 
+
     def _current_row_is_valid(self):
         return self.current_row <= self.num_objects + 1
 
@@ -298,8 +307,9 @@ class Deserializer(base.Deserializer):
 
     def _get_model(self, sheet):
         """
-        Each sheet on the spreadsheet represents a model.
-        Returns the model class from a specific sheet.
+        Each sheet on the workbook represents a model.
+        Returns the model class from a specific sheet,
+        or raises when the model has been not found.
         """
 
         if not sheet.title:
@@ -307,7 +317,7 @@ class Deserializer(base.Deserializer):
         try:
             return apps.get_model(sheet.title)
         except (LookupError, TypeError):
-            raise base.DeserializationError("Worksheet has invalid model identifier: '%s'" % (sheet.title))
+            raise base.DeserializationError('Worksheet has invalid model identifier: {}'.format(sheet.title))
 
     def _row_to_dict(self, row, fields):
         """
@@ -320,11 +330,11 @@ class Deserializer(base.Deserializer):
         # Getting all values from each column (on the row):
         for index, (field_name, field) in enumerate(fields):
             cell = row[index]
-            values[field_name] = self.get_value(cell, field)
+            values[field_name] = self._get_value(cell, field)
 
         return values
 
-    def get_value(self, cell, field):
+    def _get_value(self, cell, field):
         """
         Returns the value of the cell casted to the proper field type
         :param cell:
@@ -341,6 +351,9 @@ class Deserializer(base.Deserializer):
             raise base.DeserializationError("Formulas are not supported at this time. Cell %s%s" % (cell.row, cell.column))
 
         # Process each field type:
+        elif isinstance(field, models.ForeignKey):
+            return field.related_model.objects.get(pk=cell.value)
+
         elif isinstance(field, models.AutoField):
             return cell.value
 
@@ -351,13 +364,11 @@ class Deserializer(base.Deserializer):
             # Order matters, DateTime needs to come before Date because datetime subclasses date
             # isinstance(aDateTimeInstance, DateField) is True, isinstance(aDateInstance, DateTimeField) is False
             if type(cell.value) is datetime:
-                print('\n\n\ndatatime')
                 if settings.USE_TZ and timezone.is_naive(cell.value):
                     return timezone.make_aware(cell.value, pytz.UTC)
                 else:
                     return cell.value
             else:
-                print('\n\n\nelse')
                 # Handle a couple different timestamp formats -- first one is how *we* save 'em
                 for pattern, format in DATETIME_FORMATS.items():
                     if re.match(pattern, str(cell.value)):

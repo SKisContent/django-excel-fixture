@@ -1,4 +1,5 @@
 # coding: utf-8
+import datetime
 from django.db import models
 from io import BytesIO
 from unittest import skip
@@ -20,9 +21,8 @@ class ExcelFileGenMixin:
         sheet = workbook.get_sheet_by_name(name)
         workbook.remove_sheet(sheet)
 
-        # Add first model sheet:
-        sheet1 = workbook.create_sheet('myapp.Person')
-        workbook.active = sheet1 # Don't know if this line is needed.
+        # Add sheet:
+        workbook.create_sheet('myapp.Person')
         # Add header:
         workbook['myapp.Person'].cell(row=1, column=1, value='id')
         workbook['myapp.Person'].cell(row=1, column=2, value='name')
@@ -40,9 +40,8 @@ class ExcelFileGenMixin:
         workbook['myapp.Person'].cell(row=4, column=2, value='Person 3')
         workbook['myapp.Person'].cell(row=4, column=3, value=23)
 
-        # Add second model sheet:
-        sheet1 = workbook.create_sheet('myapp.Ingredient')
-        workbook.active = sheet1 # Don't know if this line is needed.
+        # Add sheet:
+        workbook.create_sheet('myapp.Ingredient')
         # Add header:
         workbook['myapp.Ingredient'].cell(row=1, column=1, value='id')
         workbook['myapp.Ingredient'].cell(row=1, column=2, value='name')
@@ -59,15 +58,43 @@ class ExcelFileGenMixin:
         workbook['myapp.Ingredient'].cell(row=5, column=1, value=4)
         workbook['myapp.Ingredient'].cell(row=5, column=2, value='Ingredient 4')
 
+        # Add sheet:
+        workbook.create_sheet('myapp.Recipe')
+        # Add header:
+        workbook['myapp.Recipe'].cell(row=1, column=1, value='id')
+        workbook['myapp.Recipe'].cell(row=1, column=2, value='name')
+        workbook['myapp.Recipe'].cell(row=1, column=3, value='owner')
+        workbook['myapp.Recipe'].cell(row=1, column=4, value='cooking_time')
+        workbook['myapp.Recipe'].cell(row=1, column=5, value='created_at')
+        workbook['myapp.Recipe'].cell(row=1, column=6, value='rtype')
+        ## Add content 1:
+        workbook['myapp.Recipe'].cell(row=2, column=1, value=1)
+        workbook['myapp.Recipe'].cell(row=2, column=2, value='Recipe 1')
+        workbook['myapp.Recipe'].cell(row=2, column=3, value=1)
+        workbook['myapp.Recipe'].cell(row=2, column=4, value=None)
+        workbook['myapp.Recipe'].cell(row=2, column=5, value='2019-09-10 15:17:34:623000')
+        workbook['myapp.Recipe'].cell(row=2, column=6, value='V')
+        # Add content 2:
+        workbook['myapp.Recipe'].cell(row=3, column=1, value=2)
+        workbook['myapp.Recipe'].cell(row=3, column=2, value='Recipe 2')
+        workbook['myapp.Recipe'].cell(row=3, column=3, value=1)
+        workbook['myapp.Recipe'].cell(row=3, column=4, value=None)
+        workbook['myapp.Recipe'].cell(row=3, column=5, value='2019-09-10 15:17:34:623000')
+        workbook['myapp.Recipe'].cell(row=3, column=6, value='V')
+
+
+        # Add sheet:
+        workbook.create_sheet('myapp.Association')
+        # Add header:
+        workbook['myapp.Association'].cell(row=1, column=1, value='id')
+        workbook['myapp.Association'].cell(row=1, column=2, value='recipe')
+        workbook['myapp.Association'].cell(row=1, column=3, value='ingredient')
+        workbook['myapp.Association'].cell(row=1, column=4, value='amount')
+
+
         # Generate in memory stream:
-        # About StringIO:
-        #       Implements a file-like class that reads and writes a string
-        #       buffer (also known as memory files).
         in_memory_file = BytesIO()
         save_workbook(workbook, in_memory_file)
-
-        # Saving the file to inspect:
-        #save_workbook(workbook, 'z_gen_file_01.xlsx')
 
         return in_memory_file
 
@@ -91,6 +118,12 @@ class XlsxDeserializerFunctionalTest(ExcelFileGenMixin, TestCase):
         self.assertEqual(4, Ingredient.objects.all().count())
         self.assertEquals(1, Ingredient.objects.first().id)
         self.assertEquals('Ingredient 1', Ingredient.objects.first().name)
+
+        # All the objects in the second sheet must be saved:
+        self.assertEqual(2, Recipe.objects.all().count())
+        self.assertEquals(1, Recipe.objects.first().id)
+        self.assertEquals('Recipe 1', Recipe.objects.first().name)
+        self.assertEquals(1, Recipe.objects.first().owner.id)
 
 
 class XlsxDeserializerUnitTest(ExcelFileGenMixin, TestCase):
@@ -182,6 +215,12 @@ class XlsxDeserializerUnitTest(ExcelFileGenMixin, TestCase):
         self.xlsx_deserializer.current_row = 6
         self.assertFalse(self.xlsx_deserializer._current_row_is_valid())
 
+        # select_sheet 3
+        self.xlsx_deserializer._select_sheet('myapp.Recipe')
+        self.assertTrue(self.xlsx_deserializer._current_row_is_valid())
+        self.xlsx_deserializer.current_row = 6
+        self.assertFalse(self.xlsx_deserializer._current_row_is_valid())
+
     def test_reset_current_row(self):
         """
         select_sheet should reset current row to the first content line,
@@ -204,6 +243,8 @@ class XlsxDeserializerUnitTest(ExcelFileGenMixin, TestCase):
         workbook = self.xlsx_deserializer.workbook
         sheet1 = workbook['myapp.Person']
         sheet2 = workbook['myapp.Ingredient']
+        sheet3 = workbook['myapp.Recipe']
+        sheet4 = workbook['myapp.Association']
 
         # Activate sheet 1:
         workbook.active = sheet1
@@ -211,6 +252,14 @@ class XlsxDeserializerUnitTest(ExcelFileGenMixin, TestCase):
 
         #Activate sheet 2:
         workbook.active = sheet2
+        self.assertTrue(self.xlsx_deserializer._has_next_sheet())
+
+        #Activate sheet 3:
+        workbook.active = sheet3
+        self.assertTrue(self.xlsx_deserializer._has_next_sheet())
+
+        #Activate sheet 4:
+        workbook.active = sheet4
         self.assertFalse(self.xlsx_deserializer._has_next_sheet())
 
     def test_select_first_sheet(self):
@@ -246,13 +295,12 @@ class XlsxDeserializerUnitTest(ExcelFileGenMixin, TestCase):
         self.assertEqual('myapp.Ingredient', workbook.active.title)
 
     def test_select_next_sheet_exception(self):
-        """ change_to_next_sheet must raise exception when in last sheet"""
+        """ change_to_next_sheet must raise exception when last sheet is selected"""
         workbook = self.xlsx_deserializer.workbook
-        sheet1 = workbook['myapp.Person']
-        sheet2 = workbook['myapp.Ingredient']
+        sheet3 = workbook['myapp.Association']
 
         # Activate sheet 2 (no next sheet):
-        workbook.active = sheet2
+        workbook.active = sheet3
         with self.assertRaises(Exception) as context:
             self.xlsx_deserializer._select_next_sheet()
 
@@ -436,14 +484,58 @@ class XlsxDeserializerUnitTest(ExcelFileGenMixin, TestCase):
             self.xlsx_deserializer.fields
         )
 
-    @skip('Questionable')
-    def test_get_model_empty_title_sheet(self):
-        """ this test is questionable since openpyxl does NOT accept sheet wih empty title."""
-        pass
+    def test_get_value_ForeignKey(self):
 
-    @skip('SUPER importanting!!! WARNING!!!!')
-    def test_get_value(self):
-        """
-        get_value is responsable for type casting and SUPER importanting
-        """
-        pass
+        # Object must exist:
+        Person.objects.create(name='Person 1', age=21)
+        Person.objects.create(name='Person 2', age=22)
+
+        # Create field:
+        class TestModelForeignKey(models.Model):
+            test_field = models.ForeignKey('Person', blank=True, null=True, on_delete=models.SET_NULL)
+        field = TestModelForeignKey._meta.get_field('test_field')
+
+        cell = Workbook().active.cell(row=1, column=1, value=1)
+        value = self.xlsx_deserializer._get_value(cell, field)
+        self.assertIsInstance(value, Person)
+        self.assertEquals(value.id, 1)
+
+        cell = Workbook().active.cell(row=1, column=1, value='2')
+        value = self.xlsx_deserializer._get_value(cell, field)
+        self.assertIsInstance(value, Person)
+        self.assertEquals(value.id, 2)
+
+        cell = Workbook().active.cell(row=1, column=1, value=None)
+        value = self.xlsx_deserializer._get_value(cell, field)
+        self.assertIsNone(value)
+
+    def test_get_value_DateTime(self):
+
+        class TestModelDateTime(models.Model):
+            test_field = models.DateTimeField(auto_now_add=True)
+        field = TestModelDateTime._meta.get_field('test_field')
+
+        cell = Workbook().active.cell(row=1, column=1, value=datetime.datetime.now())
+        value = self.xlsx_deserializer._get_value(cell, field)
+        self.assertIsInstance(value, datetime.datetime)
+
+        cell = Workbook().active.cell(row=2, column=1, value='2019-09-30 13:03:56:307439')
+        value = self.xlsx_deserializer._get_value(cell, field)
+        self.assertIsInstance(value, datetime.datetime)
+
+    def test_get_value_CharField(self):
+
+        class TestModelChar(models.Model):
+            test_field = models.CharField(blank=True, null=True, max_length=5)
+        field = TestModelChar._meta.get_field('test_field')
+
+        cell = Workbook().active.cell(row=1, column=1, value='abcde')
+        value = self.xlsx_deserializer._get_value(cell, field)
+        self.assertIsInstance(value, str)
+        self.assertEqual(value, 'abcde')
+
+        # get_value does not validate. This will raise when being saved:
+        cell = Workbook().active.cell(row=1, column=1, value='abcdef')
+        value = self.xlsx_deserializer._get_value(cell, field)
+        self.assertIsInstance(value, str)
+        self.assertEqual(value, 'abcdef')
