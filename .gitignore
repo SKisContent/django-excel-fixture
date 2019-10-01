@@ -23,6 +23,7 @@ ui_*.py
 *.xlsx
 *.csv
 *draft*
+*.egg-info/
 
 # Dir
 __pycache__

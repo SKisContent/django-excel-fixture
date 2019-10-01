@@ -30,6 +30,7 @@ from django.db.models import AutoField, BooleanField, CharField, DurationField, 
     FloatField, ImageField, GenericIPAddressField, NullBooleanField, PositiveSmallIntegerField, SlugField, \
     SmallIntegerField, TextField, TimeField, URLField, UUIDField
 
+
 PREFERRED_TS_FORMAT = '%Y-%m-%d %H:%M:%S:%f%z'
 Y_M_D_FORMAT = '%Y-%m-%d'
 
