@@ -1,74 +1,99 @@
 # Django Excel Fixture
-I was getting ready to write some tests and needed test data, and it seemed easiest to create it using Excel. However, I couldn't find existing code that would quickly load the data into the db, so I wrote a fixture for loading and saving data to Excel files.
 
-Installation
--
-At the moment this is not a pip-ified project, so the installation is going to be manual. Copy the contents of the _src_ directory into your django application under the root source directory or one of the apps, although I prefer to create a _core_ package.
+[![Build Status](https://travis-ci.org/portela/django-excel-fixture.svg?branch=master)](https://travis-ci.org/portela/django-excel-fixture)
 
-*Example*:
+Django-excel-fixture is an easy way to import, export and test using .xlsx file.
 
-If your Django tree looks something like:
-```
-MyProject
-|-myproject
-| |-__init__.py
-| |-myapp1
-| | |-__init__.py
-| | |-apps.py
-| | |-models.py
-| | |-views.py
-| |-myapp2
-|-templates
+## Motivation
+
+Excel is a must in the corporate world. It is an easy to use and highly powerful application, currently being used by millions of users (maybe more than a billion user). Django-excel-fixture provides a way to import, export data using excel file (.xlsx); and also use it as test fixture.
+
+
+## Installation
+
+To install it, simply:
+
+```console
+$ pip install django-excel-fixture
 ```
 
-then post installation it would look like:
-```
-MyProject
-|-myproject
-| |-__init__.py
-| |-core                  <--
-| | |-__init__.py         <--
-| | |-serializers         <--
-| | | |-__init__.py       <--
-| | | |-excel.py          <--
-| |-myapp1
-| | |-__init__.py
-| | |-apps.py
-| | |-models.py
-| | |-views.py
-| |-myapp2
-|-templates
+Then add it to your INSTALLED_APPS on your settings.py:
+
+```python
+INSTALLED_APPS = (
+    #...
+    'django_excel_fixture',
+)
 ```
 
-Dependency
--
-- Only tested on Python 3.6
-
-- This uses the openpyxl package, so you will need to install that.
-
-```pip install openpyxl```
+## Usage
 
 
-Usage
--
-If you already have some data in the database, to save it use:
+### Exporting data from database:
 
-```./manage.py dumpdata myapp1.MyModelName --format xlsx --output myfilename.xlsx```
- 
- If you leave out the **output** option, the table is dumped to stdout in CSV format.
+If you already have some data in the database, to export it to a .xlsx file:
+
+```console
+$ python manage.py dumpdata --format xlsx --output myfilename.xlsx
+```
+
+It is also possible to select a specific model:
+
+```console
+$ python manage.py dumpdata myapp1.MyModelName --format xlsx --output myfilename.xlsx
+```
+
+* If you leave out the **output** option, the table is dumped to stdout in CSV format.
+* There will be sheets only for table with data
+
+### Importing data into the database:
 
 To manually load the data from the Excel file, use:
 
-```./manage.py loaddata myfilename.xlsx```
- 
-To use the fixture in a test, just add
+```console
+$ python manage.py loaddata myfilename.xlsx
+```
 
-```    fixtures = ['myfilename.xlsx']```
+### Using as test fixture:
 
-to the test class.
+To use the fixture in a test, just add to the test class:
 
-If you need to brush up on fixtures, look at https://django-testing-docs.readthedocs.io/en/latest/fixtures.html.
+```python
+class MyTestCase(TestCase):
+    fixtures = ['myfilename.xlsx']
 
-Contribute
--
-This gets the job done but there could be more work done to make it more resilient and handle more data types. It also doesn't do anything with foreign keys or many-to-many relationships. If you feel like contributing, please do! 
+    def ...
+```
+
+* No performance optimization has been made. Caution is advised.
+
+
+## Excel file format
+
+* Currently, it is only compatible with .xlxs format.
+* Every sheet is a model. The sheet title represents the model's identification.
+* Every column represents a field.
+* Every row represents a object (database entry).
+
+
+## Contribution
+
+```console
+git clone git@github.com:SKisContent/django-excel-fixture.git
+cd django-excel-fixture
+python -m venv .venv
+source .venv/scripts/activate
+pip install -r requirements.txt
+python runtests.py
+```
+
+Authors
+------
+
+* [Henrique Portela](https://github.com/portela)
+* [SKisContent](https://github.com/SKisContent)
+
+License
+=======
+
+The MIT License.
